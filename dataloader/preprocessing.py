@@ -1,114 +1,173 @@
 import os
 import json
 import time
-import pprint
+import pandas as pd
+import datetime
+
+from pprint import pprint
 
 DATA_PATH  = '/data3/data/naver/naver_connect_v2'
 SAVE_PATH  = '/data3/data/naver/preprocessing'
 
+def user_preprocessing(line_data):
+    if 'status' not in line_data:
+        return False
+    if not ('bookmark' and 'follower' and 'following' and 'project' and 'projectAll') in line_data['status']:
+        return False
+    
+    data = {}
+    data['id'] = line_data['_id']['$oid']
+    data['login_count'] = line_data['loginCount']
+    data['login_last'] = datetime.datetime.strptime(line_data['lastLogin']['$date'].split('.')[0], "%Y-%m-%dT%H:%M:%S")
+    
+    data['bookmark'] = line_data['status']['bookmark']['project']
+    data['follower'] = line_data['status']['follower']
+    data['following'] = line_data['status']['following']
+    data['project'] = line_data['status']['project']
+    data['projectAll'] = line_data['status']['projectAll']
+
+    return data
 
 def preprocessing(name, extension='_202205.json'):
     file_name = os.path.join(DATA_PATH, name+extension)
     
     if name == 'users':
-        line_cnt = 0
+        USER_COL = ['id', 'login_count', 'login_last', 'bookmark', 'follower', 'following', 'project', 'projectAll']
+        
+        df_user = pd.DataFrame(columns=USER_COL)
+        
         target_cnt = 0
-        role_cnt = [0,0,0,0] # admin, member, teacher, student
+        start_time = time.time()
+        user_ids = []
+                
+        with open(file_name, 'r') as f:
+            for line_idx, line in enumerate(f):
+                line_data = json.loads(line)    
+                
+                # if line_data['role'] != 'member':
+                if line_data['role'] != 'member' or line_data['loginCount'] < 3:
+                    pass
+                else:
+                    data_preprocessed = user_preprocessing(line_data)
+                    
+                    if data_preprocessed:
+                        df_line = pd.DataFrame([data_preprocessed])
+                        print(df_user)
+                        print(df_line)
+                    
+                        break
+                        
+                    
+                # if target_cnt > 50:
+                #     break
+                                    
+        print(name, 'preprocessing time:\t', round(time.time()-start_time, 3))  # ~52s
+        print(name, 'preproceeing data:\t', line_idx+1, '->', target_cnt)       # 5212303 -> 1826516
+    
+    elif name == 'projects':
+        start_time = time.time()
+        data_preprocessed = {}
+        target_cnt = 0
+        wrong_cnt = 0
         
         start_time = time.time()
         with open(file_name, 'r') as f:
-            for line in f:
+            for line_idx, line in enumerate(f):
                 line_data = json.loads(line)
             
-                ################################
-                if '_id' not in line_data:
-                    print(line_data)
-                if 'role' not in line_data:
-                    pprint.pprint(line_data)
-                ###############################        
-                # if line_data['loginCount'] >= 3 :
-                #     target_cnt += 1
-                #     if line_data['role'] == 'admin':
-                #         role_cnt[0] += 1 
-                #     elif line_data['role'] == 'member':
-                #         role_cnt[1] += 1 
-                #     elif line_data['role'] == 'teacher':
-                #         role_cnt[2] += 1 
-                #     elif line_data['role'] == 'student':
-                #         role_cnt[3] += 1
-                        
-                if 'status' in line_data and line_data['role']=='member' and line_data['loginCount'] >= 3:
-                    pprint.pprint(line_data)
-                    print()
-                    target_cnt += 1
-                
-                if target_cnt > 4:
-                    break
-                
-                # if line_data['role'] == 'student':
-                #     pprint.pprint(line_data)
-                #     break
-                
-                # if line_data['username'] != line_data['nickname']:
-                #     pprint.pprint(line_data)
-                #     break
+                # if 10 <= line_idx <= 15:
+                #     pprint(line_data)
                 
                 
-                # if 'studyCurriculum' in line_data:
-                #     if len(line_data['studyCurriculum']) > 1:
-                #         pprint.pprint(line_data)
+                # if 'childCnt' in line_data:
+                #     if 10 < line_data['childCnt'] < 1000 and not line_data['isForStudy']:
+                #         pprint(line_data)
                 #         break
-                    
                 
-                line_cnt += 1 
-                
+                if 'likeCnt' not in line_data:
+                    wrong_cnt += 1
+                else:
+                    if line_data['likeCnt'] >= 1:
+                        target_cnt += 1
                 
         print(name, 'preprocessing:\t', round(time.time()-start_time, 3))
-        print(name, 'line counts:\t', line_cnt)
-        print(target_cnt)
-        print(role_cnt)
-    
-    elif name == 'favorites':
-        line_cnt = 0
-        wrong_cnt = 0
-        group_cnt = 0
-        indiv_cnt = 0
-        target_cnt = [0] * 3 # projects, lecture, curriculum
+        print(name, 'line counts:\t', line_idx+1)
+        print(name, 'target counts:\t', target_cnt)
+        print(name, 'not include likeCnt:\t', wrong_cnt)
         
+        # ################
+        # projects preprocessing:  186.794
+        # projects line counts:    21479342
+        # projects target counts:  906065 (410107, likeCnt>=2) 
+        # projects not include likeCnt:    3
+        # ################
+        
+    elif name == 'likes':
         start_time = time.time()
+        target_subjects = []
+        wrong_cnt = 0 
+        
+        data_preprocessed = {}
+        
         with open(file_name, 'r') as f:
-            for line in f:
+            for line_idx, line in enumerate(f):
                 line_data = json.loads(line)
-                line_cnt += 1
-                
-                # if 'targetType' not in line_data:
-                #     wrong_cnt += 1
-                # else: 
-                #     if line_data['targetType'] == 'individual':
-                #         indiv_cnt += 1
-                #     if line_data['targetType'] == 'group':
-                #         group_cnt += 1
                 
                 if 'targetSubject' not in line_data:
                     wrong_cnt += 1
-                    pprint.pprint(line_data)
-                else:
-                    if line_data['targetSubject'] == 'project':
-                        target_cnt[0] += 1
-                    elif line_data['targetSubject'] == 'lecture':
-                        target_cnt[1] += 1
-                    elif line_data['targetSubject'] == 'curriculum':
-                        target_cnt[2] += 1
-                        
+                else: 
+                    if line_data['targetSubject'] not in target_subjects:
+                        target_subjects.append(line_data['targetSubject'])
+                
         print(name, 'preprocessing:\t', round(time.time()-start_time, 3))
-        print(name, 'line counts:\t', line_cnt)
-        print(line_cnt)
-        print(wrong_cnt)
-        print(target_cnt)
+        print(name, 'line counts:\t', line_idx+1)
+        print(name, 'target subjects:\t', target_subjects)
+        print(name, 'not include target subjects:\t', wrong_cnt)
+        
+        # ################
+        # likes preprocessing:     19.555
+        # likes line counts:       6979858
+        # likes target subjects:   ['project', 'comment', 'discuss', 'lecture', 'discovery', 'curriculum', 'EntryStory', '글삭기관총']
+        # likes not include target subjects:       5329
+        # ################
+        
+    elif name == 'favorites':
+        start_time = time.time()
+        target_subjects = []
+        wrong_cnt = 0         
+        data_preprocessed = {}
+        
+        with open(file_name, 'r') as f:
+            for line_idx, line in enumerate(f):
+                line_data = json.loads(line)
+                
+                if 'targetSubject' not in line_data:
+                    wrong_cnt += 1
+                else: 
+                    pprint(line_data)
+                    if line_data['targetSubject'] not in target_subjects:
+                        target_subjects.append(line_data['targetSubject'])
+                        
+                        
+                if line_idx > 5:
+                    break
+                
+                
+        print(name, 'preprocessing:\t', round(time.time()-start_time, 3))
+        print(name, 'line counts:\t', line_idx+1)
+        print(name, 'target subjects:\t', target_subjects)
+        print(name, 'not include target subjects:\t', wrong_cnt)
+        # ################
+        # favorites preprocessing:         8.293
+        # favorites line counts:   3069707
+        # favorites target subjects:       ['project', 'lecture', 'curriculum']
+        # favorites not include target subjects:   75
+        # ################
 
 def main():
     preprocessing('users')
-    # preprocessing('favorites')
+    # preprocessing('projects')
+    # preprocessing('likes')
 
 if __name__=='__main__':
     main()
