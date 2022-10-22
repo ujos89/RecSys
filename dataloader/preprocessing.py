@@ -3,11 +3,12 @@ import json
 import time
 import pandas as pd
 import datetime
+import csv
 
 from pprint import pprint
 
 DATA_PATH  = '/data3/data/naver/naver_connect_v2'
-SAVE_PATH  = '/data3/data/naver/preprocessing'
+SAVE_PATH  = '/home/zealot/zealot/RecSys/data/preprocessed'
 
 def user_preprocessing(line_data):
     if 'status' not in line_data:
@@ -15,17 +16,48 @@ def user_preprocessing(line_data):
     if not ('bookmark' and 'follower' and 'following' and 'project' and 'projectAll') in line_data['status']:
         return False
     
-    data = {}
-    data['id'] = line_data['_id']['$oid']
-    data['login_count'] = line_data['loginCount']
-    data['login_last'] = datetime.datetime.strptime(line_data['lastLogin']['$date'].split('.')[0], "%Y-%m-%dT%H:%M:%S")
-    
-    data['bookmark'] = line_data['status']['bookmark']['project']
-    data['follower'] = line_data['status']['follower']
-    data['following'] = line_data['status']['following']
-    data['project'] = line_data['status']['project']
-    data['projectAll'] = line_data['status']['projectAll']
+    # data = {}
+    # data['id'] = line_data['_id']['$oid']
+    # data['login_count'] = line_data['loginCount']
+    # data['login_last'] = datetime.datetime.strptime(line_data['lastLogin']['$date'][:16], "%Y-%m-%dT%H:%M")
+    # data['bookmark'] = line_data['status']['bookmark']['project']
+    # data['follower'] = line_data['status']['follower']
+    # data['following'] = line_data['status']['following']
+    # data['project'] = line_data['status']['project']
+    # data['projectAll'] = line_data['status']['projectAll']
 
+    data = []
+    data.append(line_data['_id']['$oid'])
+    data.append(line_data['loginCount'])
+    data.append(datetime.datetime.strptime(line_data['lastLogin']['$date'][:16], "%Y-%m-%dT%H:%M"))
+    data.append(line_data['status']['bookmark']['project'])
+    data.append(line_data['status']['follower'])
+    data.append(line_data['status']['following'])
+    data.append(line_data['status']['project'])
+    data.append(line_data['status']['projectAll'])
+    
+    return data
+
+def item_preprocessing(line_data):
+    if 'likeCnt' not in line_data:
+        return False
+    elif line_data['likeCnt'] < 1:
+        return False
+            
+    
+    if not ('_id' and 'categoryCode' and 'comment' and 'likeCnt' and 'visit' and 'user' and 'created' and 'updated') in line_data:
+        return False
+
+    data = []
+    data.append(line_data['_id']['$oid'])
+    data.append(line_data['categoryCode'])
+    data.append(line_data['comment'])
+    data.append(line_data['likeCnt'])
+    data.append(line_data['visit'])
+    data.append(line_data['user']['$oid'])
+    data.append(datetime.datetime.strptime(line_data['created']['$date'][:16], "%Y-%m-%dT%H:%M"))
+    data.append(datetime.datetime.strptime(line_data['updated']['$date'][:16], "%Y-%m-%dT%H:%M"))
+    
     return data
 
 def preprocessing(name, extension='_202205.json'):
@@ -34,13 +66,16 @@ def preprocessing(name, extension='_202205.json'):
     if name == 'users':
         USER_COL = ['id', 'login_count', 'login_last', 'bookmark', 'follower', 'following', 'project', 'projectAll']
         
-        df_user = pd.DataFrame(columns=USER_COL)
-        
-        target_cnt = 0
+        user_idx = 0
         start_time = time.time()
         user_ids = []
+        user_dict = {}
                 
         with open(file_name, 'r') as f:
+            f_save = open(os.path.join(SAVE_PATH, 'user.csv'), 'w', newline='')
+            writer = csv.writer(f_save)
+            writer.writerow(USER_COL)
+            
             for line_idx, line in enumerate(f):
                 line_data = json.loads(line)    
                 
@@ -49,51 +84,40 @@ def preprocessing(name, extension='_202205.json'):
                     pass
                 else:
                     data_preprocessed = user_preprocessing(line_data)
-                    
                     if data_preprocessed:
-                        df_line = pd.DataFrame([data_preprocessed])
-                        print(df_user)
-                        print(df_line)
-                    
-                        break
-                        
-                    
-                # if target_cnt > 50:
-                #     break
-                                    
+                        writer.writerow(data_preprocessed)
+                        user_idx += 1
+                
+                if line_idx%10000==0:
+                    print(line_idx, '->', user_idx)
+        f_save.close()                        
+        
         print(name, 'preprocessing time:\t', round(time.time()-start_time, 3))  # ~52s
-        print(name, 'preproceeing data:\t', line_idx+1, '->', target_cnt)       # 5212303 -> 1826516
+        print(name, 'preproceeing data:\t', line_idx+1, '->', user_idx+1)       # 5212303 -> 1826516
+        # df_user = df_user.reset_index(drop=True)
+        # df_user.to_pickle(os.path.join(SAVE_PATH, 'user.pkl'))
     
     elif name == 'projects':
-        start_time = time.time()
-        data_preprocessed = {}
-        target_cnt = 0
-        wrong_cnt = 0
+        PROJ_COL = ['id', 'category', 'comment_count', 'like_count', 'visit_count', 'user_id', 'create_date', 'update_date']
         
         start_time = time.time()
+        data_preprocessed = {}        
+        start_time = time.time()
+        
         with open(file_name, 'r') as f:
             for line_idx, line in enumerate(f):
                 line_data = json.loads(line)
             
-                # if 10 <= line_idx <= 15:
-                #     pprint(line_data)
                 
+                data_preprocessed = item_preprocessing(line_data)
+                if data_preprocessed:
+                    pprint(data_preprocessed)
                 
-                # if 'childCnt' in line_data:
-                #     if 10 < line_data['childCnt'] < 1000 and not line_data['isForStudy']:
-                #         pprint(line_data)
-                #         break
-                
-                if 'likeCnt' not in line_data:
-                    wrong_cnt += 1
-                else:
-                    if line_data['likeCnt'] >= 1:
-                        target_cnt += 1
+                if line_idx>100:
+                    break
                 
         print(name, 'preprocessing:\t', round(time.time()-start_time, 3))
         print(name, 'line counts:\t', line_idx+1)
-        print(name, 'target counts:\t', target_cnt)
-        print(name, 'not include likeCnt:\t', wrong_cnt)
         
         # ################
         # projects preprocessing:  186.794
@@ -165,8 +189,8 @@ def preprocessing(name, extension='_202205.json'):
         # ################
 
 def main():
-    preprocessing('users')
-    # preprocessing('projects')
+    # preprocessing('users')
+    preprocessing('projects')
     # preprocessing('likes')
 
 if __name__=='__main__':
