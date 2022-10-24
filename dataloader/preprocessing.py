@@ -13,7 +13,7 @@ SAVE_PATH  = '/home/zealot/zealot/RecSys/data/preprocessed'
 def user_preprocessing(line_data):
     if 'status' not in line_data:
         return False
-    if not ('bookmark' and 'follower' and 'following' and 'project' and 'projectAll') in line_data['status']:
+    if not ('bookmark' or 'follower' or 'following' or 'project' or 'projectAll') in line_data['status']:
         return False
     
     # data = {}
@@ -44,8 +44,7 @@ def item_preprocessing(line_data):
     elif line_data['likeCnt'] < 1:
         return False
             
-    
-    if not ('_id' and 'categoryCode' and 'comment' and 'likeCnt' and 'visit' and 'user' and 'created' and 'updated') in line_data:
+    if not ('_id' or 'categoryCode' or 'comment' or 'likeCnt' or 'visit' or 'user' or 'created' or 'updated') in line_data:
         return False
 
     data = []
@@ -59,6 +58,30 @@ def item_preprocessing(line_data):
     data.append(datetime.datetime.strptime(line_data['updated']['$date'][:16], "%Y-%m-%dT%H:%M"))
     
     return data
+
+def interaction_preprocessing(line_data):
+    if 'targetSubject' not in line_data:
+        return False
+    if line_data['targetSubject'] != 'project':
+        return False
+    if not ('target' or 'user' or 'created') in line_data:
+        return False
+    
+    if not '$oid' in line_data['user']:
+        return False
+    if not '$oid' in line_data['target']:
+        return False
+    if not '$date' in line_data['created']:
+        return False
+        
+    
+    data = []
+    data.append(line_data['user']['$oid'])
+    data.append(line_data['target']['$oid'])
+    data.append(datetime.datetime.strptime(line_data['created']['$date'][:16], "%Y-%m-%dT%H:%M"))
+    
+    return data
+    
 
 def preprocessing(name, extension='_202205.json'):
     file_name = os.path.join(DATA_PATH, name+extension)
@@ -103,21 +126,29 @@ def preprocessing(name, extension='_202205.json'):
         start_time = time.time()
         data_preprocessed = {}        
         start_time = time.time()
+        item_cnt = 0
         
         with open(file_name, 'r') as f:
+            f_save = open(os.path.join(SAVE_PATH, 'item.csv'), 'w', newline='')
+            writer = csv.writer(f_save)
+            writer.writerow(PROJ_COL)
             for line_idx, line in enumerate(f):
                 line_data = json.loads(line)
             
-                
-                data_preprocessed = item_preprocessing(line_data)
-                if data_preprocessed:
-                    pprint(data_preprocessed)
-                
-                if line_idx>100:
-                    break
-                
-        print(name, 'preprocessing:\t', round(time.time()-start_time, 3))
-        print(name, 'line counts:\t', line_idx+1)
+                if 'categoryCode' not in line_data:
+                    pass
+                else:
+                    data_preprocessed = item_preprocessing(line_data)
+                    if data_preprocessed:
+                        writer.writerow(data_preprocessed)
+                        item_cnt += 1
+                        
+                if line_idx%10000==0:
+                    print(line_idx, '->', item_cnt)
+        f_save.close()
+        
+        print(name, 'preprocessing:\t', round(time.time()-start_time, 3))       #
+        print(name, 'preproceeing data:\t', line_idx+1, '->', item_cnt+1)       # 
         
         # ################
         # projects preprocessing:  186.794
@@ -127,26 +158,32 @@ def preprocessing(name, extension='_202205.json'):
         # ################
         
     elif name == 'likes':
-        start_time = time.time()
-        target_subjects = []
-        wrong_cnt = 0 
+        INTER_COL = ['user_id', 'item_id', 'time']
         
-        data_preprocessed = {}
+        start_time = time.time()
+        inter_cnt = 0 
         
         with open(file_name, 'r') as f:
+            f_save = open(os.path.join(SAVE_PATH, 'interaction.csv'), 'w', newline='')
+            writer = csv.writer(f_save)
+            writer.writerow(INTER_COL)
+            
             for line_idx, line in enumerate(f):
                 line_data = json.loads(line)
                 
-                if 'targetSubject' not in line_data:
-                    wrong_cnt += 1
-                else: 
-                    if line_data['targetSubject'] not in target_subjects:
-                        target_subjects.append(line_data['targetSubject'])
+                data_preprocessed = interaction_preprocessing(line_data)
+                if not data_preprocessed:
+                    pass
+                else:
+                    writer.writerow(data_preprocessed)
+                    inter_cnt += 1
+                
+                if line_idx%10000==0:
+                    print(line_idx, '->', inter_cnt)
+        f_save.close()
                 
         print(name, 'preprocessing:\t', round(time.time()-start_time, 3))
-        print(name, 'line counts:\t', line_idx+1)
-        print(name, 'target subjects:\t', target_subjects)
-        print(name, 'not include target subjects:\t', wrong_cnt)
+        print(name, 'line counts:\t', line_idx+1, '->', inter_cnt+1)
         
         # ################
         # likes preprocessing:     19.555
@@ -168,10 +205,8 @@ def preprocessing(name, extension='_202205.json'):
                 if 'targetSubject' not in line_data:
                     wrong_cnt += 1
                 else: 
-                    pprint(line_data)
                     if line_data['targetSubject'] not in target_subjects:
-                        target_subjects.append(line_data['targetSubject'])
-                        
+                        target_subjects.append(line_data['targetSubject'])  
                         
                 if line_idx > 5:
                     break
@@ -190,8 +225,8 @@ def preprocessing(name, extension='_202205.json'):
 
 def main():
     # preprocessing('users')
-    preprocessing('projects')
-    # preprocessing('likes')
+    # preprocessing('projects')
+    preprocessing('likes')
 
 if __name__=='__main__':
     main()
