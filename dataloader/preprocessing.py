@@ -223,10 +223,38 @@ def preprocessing(name, extension='_202205.json'):
         # favorites not include target subjects:   75
         # ################
 
+def prepare():
+    df_item = pd.read_csv(os.path.join(SAVE_PATH, 'item.csv'))
+    df_user = pd.read_csv(os.path.join(SAVE_PATH, 'user.csv'))
+    df_session = pd.read_csv(os.path.join(SAVE_PATH, 'interaction.csv'))
+    
+    user_id = set(df_user['id'])
+    item_user_id = set(df_item['user_id'])
+    
+    # delete item not in user
+    user_id_intersection = list(user_id.intersection(item_user_id))
+    
+    item_prepared = df_item[df_item.user_id.isin(user_id_intersection)].reset_index(drop=True)
+    user_prepared = df_user[df_user.id.isin(user_id_intersection)].reset_index(drop=True)
+    session_prepared = df_session[df_session.user_id.isin(user_id_intersection)].reset_index(drop=True)
+    print('user:', len(df_user), '->', len(user_prepared))
+    print('item:', len(df_item), '->', len(item_prepared))
+    print('session:', len(df_session), '->', len(session_prepared))
+    
+    # save
+    item_prepared.to_csv(os.path.join(SAVE_PATH, 'prepared', 'item.csv'), index=False)
+    item_prepared.to_pickle(os.path.join(SAVE_PATH, 'prepared', 'item.pkl'))
+    user_prepared.to_csv(os.path.join(SAVE_PATH, 'prepared', 'user.csv'), index=False)
+    user_prepared.to_pickle(os.path.join(SAVE_PATH, 'prepared', 'user.pkl'))
+    session_prepared.to_csv(os.path.join(SAVE_PATH, 'prepared', 'session.csv'), index=False)
+    session_prepared.to_pickle(os.path.join(SAVE_PATH, 'prepared', 'session.pkl'))
+
 def main():
     # preprocessing('users')
     # preprocessing('projects')
-    preprocessing('likes')
+    # preprocessing('likes')
+
+    prepare()
 
 if __name__=='__main__':
     main()
