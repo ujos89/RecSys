@@ -1,0 +1,11 @@
+dataset:
+  root_path: '/home/zealot/zealot/RecSys/data/preprocessed/prepared'
+  split:
+    ratio: 0.9
+    seed: 42
+  merge:
+    session_file: 
+
+dataloader:
+  batch_size: 256
+  shuffle: True

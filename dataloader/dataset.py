@@ -2,8 +2,9 @@ import os
 import pandas as pd
 import torch
 
-from torch.utils.data import Dataset, random_split
+from torch.utils.data import Dataset, DataLoader,random_split
 
+DATA_PATH = '/home/zealot/zealot/RecSys/data/preprocessed/prepared'
 
 class ItemDataset(Dataset):
     def __init__(self, data_path):
@@ -47,24 +48,28 @@ class UserDataset(Dataset):
         # columns: id, login_count, login_last, bookmark, follower, following, project, projectAll
         
         return sample
-    
 
-class SessionDataset(Dataset):
-    def __init__(self, data_path):
+class MergeDataset(Dataset):
+    def __init__(self, user_dataloader, item_dataloader, args):
+        df_session = pd.read_pickle(os.path.join(args['root_path'], 'seesion.pkl'))
+        
         if data_path.endswith('.csv'):
-            df = pd.read_csv(data_path)
+            df_session = pd.read_csv(data_path)
         elif data_path.endswith('.pkl'):
-            df = pd.read_pickle(data_path)
+            df_session = pd.read_pickle(data_path)
         else:
             raise NotImplementedError
         
-        self.df = df
+        self.user_dataloader = user_dataloader
+        self.item_dataloader = item_dataloader
+        self.df_session = df_session
         
     def __len__(self):
-        return len(self.df)
-    
+        return len(self.user_dataloader) * len(self.item_dataloader)
+
     def __getitem__(self, idx):
-        return 1
+        # user_idx = 
+        # item_idx = 
 
 def dataset_split(dataset, ratio, seed=42):
     train_size = int(len(dataset)*0.8)
@@ -73,7 +78,20 @@ def dataset_split(dataset, ratio, seed=42):
 
     return trainset, testset
 
-DATA_PATH = '/home/zealot/zealot/RecSys/data/preprocessed/prepared'
+def bulid_dataset(data_type, args):
+    if data_type == 'item':
+        dataset = ItemDataset(os.path.join(args['root_path'], 'item.pkl'))
+    elif data_type == 'user':
+        dataset = UserDataset(os.path.join(args['root_path'], 'user.pkl'))
+    else:
+        raise NotImplementedError
+    
+    trainset, testset = dataset_split(dataset, ratio=args['split']['ratio'], seed=args['split']['seed'])
+    
+    return trainset, testset
+
+def bulid_dataloader(dataset, args):
+    return DataLoader(dataset, batch_size=args['batch_size'], shuffle=args['shuffle'])
 
 def main():    
     dataset = ItemDataset(os.path.join(DATA_PATH, 'item.pkl'))
