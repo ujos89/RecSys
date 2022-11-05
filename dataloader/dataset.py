@@ -70,6 +70,7 @@ class MergeDataset(Dataset):
     def __getitem__(self, idx):
         # user_idx = 
         # item_idx = 
+        pass
 
 def dataset_split(dataset, ratio, seed=42):
     train_size = int(len(dataset)*0.8)
