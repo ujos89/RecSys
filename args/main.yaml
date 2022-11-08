@@ -6,7 +6,12 @@ dataset:
   posneg:
     neg_samples: 1
 
-
 dataloader:
   batch_size: 256
   shuffle: True
+
+model:
+  GMF:
+    user_dim: 6
+    item_dim: 4
+    latent_dim: 16

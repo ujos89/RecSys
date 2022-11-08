@@ -1,5 +1,5 @@
-import os
 import pandas as pd
+import os
 import torch
 import time
 import random
@@ -7,7 +7,6 @@ import random
 from torch.utils.data import Dataset, DataLoader,random_split
 
 DATA_PATH = '/home/zealot/zealot/RecSys/data/preprocessed/prepared'
-CATEGORY = {'etc':0, 'game':1, 'living':2, 'storytelling':3, 'arts':4}
 
 class ItemDataset(Dataset):
     def __init__(self, data_path):
@@ -62,6 +61,13 @@ def session2pair(df_session):
             pair_dict[user_id].append(item_id)
     return pair_dict
 
+def category2int(target):
+    CATEGORY = {'etc':0, 'game':1, 'living':2, 'storytelling':3, 'arts':4, 'storytelling':5}
+    if target in CATEGORY:
+        return CATEGORY[target]
+    else:
+        return 0
+
 class PNDataset(Dataset):
     def __init__(self, args):
         self.df_user = pd.read_pickle(os.path.join(args['root_path'], 'user.pkl'))
@@ -73,6 +79,7 @@ class PNDataset(Dataset):
     def __len__(self):
         return len(self.df_session) * (1 + self.neg_samples)
 
+    
     def __getitem__(self, idx):
         # positive sample
         if idx < len(self.df_session):
@@ -90,19 +97,21 @@ class PNDataset(Dataset):
                 item_id = self.df_item.iloc[item_idx]['id']
                 
                 if self.df_session[(self.df_session['user_id']==user_id)&(self.df_session['item_id']==item_id)].empty:
-                    break    
+                    break
         
             label = torch.FloatTensor([0])
             
         user_info = self.df_user[self.df_user['id'] == user_id].to_dict('records')[0]
         item_info = self.df_item[self.df_item['id'] == item_id].to_dict('records')[0]
         
+        
         # USER INFO {login_count, bookmark, follower, following, project, projectAll}
         user = torch.FloatTensor([user_info['login_count'], user_info['bookmark'], user_info['follower'], user_info['following'], user_info['project'], user_info['projectAll']])
         # ITEM INFO {category, comment_count, like_count, visit_count
-        item = torch.FloatTensor([CATEGORY[item_info['category']], item_info['comment_count'], item_info['like_count'], item_info['visit_count']])
+        item = torch.FloatTensor([category2int(item_info['category']), item_info['comment_count'], item_info['like_count'], item_info['visit_count']])
         
         return (user, item), label
+
 
 def dataset_split(dataset, ratio, seed=42):
     train_size = int(len(dataset)*0.8)

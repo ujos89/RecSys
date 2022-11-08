@@ -228,15 +228,39 @@ def prepare():
     df_user = pd.read_csv(os.path.join(SAVE_PATH, 'user.csv'))
     df_session = pd.read_csv(os.path.join(SAVE_PATH, 'interaction.csv'))
     
+    # user_id = set(df_user['id'])
+    # item_user_id = set(df_item['user_id'])
+    
+    # # delete item not in user
+    # user_id_intersection = list(user_id.intersection(item_user_id))
+    
+    # item_prepared = df_item[df_item.user_id.isin(user_id_intersection)].reset_index(drop=True)
+    # user_prepared = df_user[df_user.id.isin(user_id_intersection)].reset_index(drop=True)
+    # session_prepared = df_session[df_session.user_id.isin(user_id_intersection)].reset_index(drop=True)
+    
+    # # delete session item_id not in item.csv
+    # session_item_id = set(session_prepared['item_id'])
+    # item_id = set(item_prepared['id'])
+    # item_id_intersection = list(item_id.intersection(session_item_id))
+    
+    # item_prepared = item_prepared[item_prepared.id.isin(item_id_intersection)].reset_index(drop=True)
+    # session_prepared = session_prepared[session_prepared.item_id.isin(item_id_intersection)].reset_index(drop=True)
+    
+    ##########
     user_id = set(df_user['id'])
+    session_user_id = set(df_session['user_id'])
+    session_item_id = set(df_session['item_id'])
     item_user_id = set(df_item['user_id'])
+    item_item_id = set(df_item['id'])
     
-    # delete item not in user
-    user_id_intersection = list(user_id.intersection(item_user_id))
+    user_id_intersection = set.intersection(user_id, session_user_id, item_user_id)
+    item_id_intersection = set.intersection(session_item_id, item_item_id)
+    ##########
     
-    item_prepared = df_item[df_item.user_id.isin(user_id_intersection)].reset_index(drop=True)
     user_prepared = df_user[df_user.id.isin(user_id_intersection)].reset_index(drop=True)
-    session_prepared = df_session[df_session.user_id.isin(user_id_intersection)].reset_index(drop=True)
+    item_prepared = df_item[df_item.id.isin(item_id_intersection) & df_item.user_id.isin(user_id_intersection)].reset_index(drop=True)
+    session_prepared = df_session[df_session.user_id.isin(user_id_intersection.intersection(user_prepared['id'])) & df_session.item_id.isin(item_id_intersection.intersection(item_prepared['id']))].reset_index(drop=True)
+    
     print('user:', len(df_user), '->', len(user_prepared))
     print('item:', len(df_item), '->', len(item_prepared))
     print('session:', len(df_session), '->', len(session_prepared))
