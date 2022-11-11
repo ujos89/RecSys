@@ -1,8 +1,9 @@
 dataset:
   root_path: '/home/zealot/zealot/RecSys/data/preprocessed/prepared'
   split:
-    ratio: 0.9
+    ratio: 0.8
     seed: 42
+    val: 0.1
   posneg:
     neg_samples: 1
 
@@ -15,3 +16,10 @@ model:
     user_dim: 6
     item_dim: 4
     latent_dim: 16
+
+train:
+  epochs: 10
+  save: True
+  save_epochs: 5
+  save_path: './ckpt'
+  lr: 0.001

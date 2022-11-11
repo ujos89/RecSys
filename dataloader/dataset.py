@@ -113,14 +113,22 @@ class PNDataset(Dataset):
         return (user, item), label
 
 
-def dataset_split(dataset, ratio, seed=42):
-    train_size = int(len(dataset)*0.8)
-    test_size = len(dataset)-train_size
-    trainset, testset = random_split(dataset, [train_size, test_size], generator=torch.Generator().manual_seed(seed))
+def dataset_split(dataset, ratio, val, seed=42):
+    if val:
+        train_size = int(len(dataset)*ratio)
+        valid_size = int(len(dataset)*val)
+        test_size = len(dataset)-train_size-valid_size
+        trainset, validset, testset = random_split(dataset, [train_size, valid_size, test_size], generator=torch.Generator().manual_seed(seed))
+        
+        return trainset, validset, testset
+    else:
+        train_size = int(len(dataset)*ratio)
+        test_size = len(dataset)-train_size
+        trainset, testset = random_split(dataset, [train_size, test_size], generator=torch.Generator().manual_seed(seed))
 
-    return trainset, testset
+        return trainset, testset
 
-def bulid_dataset(data_type, args):
+def build_dataset(data_type, args):
     if data_type == 'item':
         dataset = ItemDataset(os.path.join(args['root_path'], 'item.pkl'))
     elif data_type == 'user':
@@ -130,11 +138,16 @@ def bulid_dataset(data_type, args):
     else:
         raise NotImplementedError
     
-    trainset, testset = dataset_split(dataset, ratio=args['split']['ratio'], seed=args['split']['seed'])
+    if args['split']['val']:
+        trainset, validset, testset = dataset_split(dataset, ratio=args['split']['ratio'], val=args['split']['val'], seed=args['split']['seed'])
+        return trainset, validset, testset
+    else:
+        trainset, testset = dataset_split(dataset, ratio=args['split']['ratio'], val=args['split']['val'], seed=args['split']['seed'])
+        return trainset, testset
+        
     
-    return trainset, testset
 
-def bulid_dataloader(dataset, args):
+def build_dataloader(dataset, args):
     return DataLoader(dataset, batch_size=args['batch_size'], shuffle=args['shuffle'])
 
 def main():    
